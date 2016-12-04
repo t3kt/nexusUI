@@ -44,16 +44,18 @@ Adds a NexusUI element to the webpage. This will create an HTML5 canvas and draw
 
 **[args]**:  *object*,  (Optional.) Extra settings for the new widget. This settings object may have any of the following properties: x (integer in px), y, w (width), h (height), name (widget's OSC name and canvas ID), parent (the ID of the element you wish to add the canvas into). If no settings are provided, the element will be at default size and appended to the body of the HTML document.
 
-nx.transform(\[canvasID\], \[type\])
-------------------------------------
+nx.transform(\[canvas\], \[type\], \[options\])
+-----------------------------------------------
 Transform an existing canvas into a NexusUI widget.
 
 
 **Parameters**
 
-**[canvasID]**:  *string*,  The ID of the canvas to be transformed.
+**[canvas]**:  *Element*,  The canvas element to be transformed.
 
 **[type]**:  *string*,  (Optional.) Specify which type of widget the canvas will become. If no type is given, the canvas must have an nx attribute with a valid widget type.
+
+**[options]**:  *object*,  (Optional.) Specify additional widget options.
 
 nx.transmit(\[data\])
 ---------------------
@@ -113,11 +115,11 @@ Set mobile viewport scale (similar to a zoom)
 
 **[scale]**:  *number*,  Zoom ratio (i.e. 0.5, 1, 2)
 
-class widget
+class Widget
 ------------
 **Methods**
 
-widget.sendsTo(\[destination\])
+Widget.sendsTo(\[destination\])
 -------------------------------
 Set the transmission protocol for this widget individually
 ```js
@@ -135,7 +137,7 @@ dial1.sendsTo(function(data) {
 
 **[destination]**:  *string|function*,  Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
 
-widget.transmit(\[data\])
+Widget.transmit(\[data\])
 -------------------------
 The "output" instructions for sending the widget's data to another application or to a JS callback. Inherited from nx.transmit and executed when each widget is interacted with or during animation. Set using .sendsTo() to use our built-in transmission defintions.
 
@@ -144,7 +146,7 @@ The "output" instructions for sending the widget's data to another application o
 
 **[data]**:  *object*,  The data to be transmitted. Each property of the object will become its own OSC message if sending via "ajax" or "max7" protocols. (This works with objects nested to up to 2 levels).
 
-widget.makeOSC(\[action\], \[data\])
+Widget.makeOSC(\[action\], \[data\])
 ------------------------------------
 Loops through an object (i.e. a widget's data), creates OSC path/value pairs, and executes a callback function with these two arguments.
 
@@ -155,57 +157,57 @@ Loops through an object (i.e. a widget's data), creates OSC path/value pairs, an
 
 **[data]**:  *object*,  The data as an object, to be broken into individual OSC messages.
 
-widget.getOffset()
+Widget.getOffset()
 ------------------
 Recalculate the computed offset of the widget's canvas and store it in widget.offset. This is useful if a widget has been moved after being created.
 
 
-widget.init()
+Widget.init()
 -------------
 Initialize or re-initialize the widget. Defined separately within each widget.
 
 
-widget.draw()
+Widget.draw()
 -------------
 Draw the widget onto the canvas.
 
 
-widget.click()
+Widget.click()
 --------------
 Executes when the widget is clicked on
 
 
-widget.move()
+Widget.move()
 -------------
 Executes on drag (mouse moves while clicked).
 
 
-widget.release()
+Widget.release()
 ----------------
 Executes when the mouse releases after having clicked on the widget.
 
 
-widget.touch()
+Widget.touch()
 --------------
 Executes when the widget is touched on a touch device.
 
 
-widget.touchMove()
+Widget.touchMove()
 ------------------
 Executes on drag (touch then move) on a touch device
 
 
-widget.touchRelease()
+Widget.touchRelease()
 ---------------------
 Executes when the touch releases after having touched the widget.
 
 
-widget.erase()
+Widget.erase()
 --------------
 Erase the widget's canvas.
 
 
-widget.set(\[data\], \[transmit\])
+Widget.set(\[data\], \[transmit\])
 ----------------------------------
 Manually set a widget's value (that is, set any properties of a widget's .val). See widget.val or the .val property of individual widgets for more info.
 Sets the value of an object.
@@ -231,12 +233,12 @@ button1.set({
 
 **[transmit]**:  *boolean*,  (optional) Whether or not to transmit new value after being set.
 
-widget.destroy()
+Widget.destroy()
 ----------------
 Remove the widget object, canvas, and all related event listeners from the document.
 
 
-widget.saveCanv()
+Widget.saveCanv()
 -----------------
 Download the widget's current graphical state as an image (png).
 

@@ -34,7 +34,7 @@ window.onload = function() {
 
   // get all canvases on the page and add them to the manager
   var allcanvi = document.getElementsByTagName("canvas");
-  for (i=0;i<allcanvi.length;i++) nx.transform(allcanvi[i]);
+  for (var i=0;i<allcanvi.length;i++) nx.transform(allcanvi[i]);
 
   if (nx.isTouchDevice) {
     document.addEventListener("touchmove", nx.blockMove, true);
@@ -195,10 +195,11 @@ Manager.prototype.add = function (type, args) {
 
 /** @method transform
  Transform an existing canvas into a NexusUI widget.
- @param {string} [canvasID] The ID of the canvas to be transformed.
+ @param {Element} [canvas] The canvas element to be transformed.
  @param {string} [type] (Optional.) Specify which type of widget the canvas will become. If no type is given, the canvas must have an nx attribute with a valid widget type.
+ @param {object} [options] (Optional.) Specify additional widget options.
  */
-Manager.prototype.transform = function (canvas, type) {
+Manager.prototype.transform = function (canvas, type, options) {
   for (var key in nx.widgets) {
     if (!nx.widgets.hasOwnProperty(key)) {
       continue;
@@ -239,7 +240,7 @@ Manager.prototype.transform = function (canvas, type) {
   if (nxType) {
     try {
       var widgetTypes = require('../widgets');
-      newObj = new (widgetTypes[nxType])(canvas.id);
+      newObj = new (widgetTypes[nxType])(canvas.id, options);
     } catch (err) {
       console.log("creation of " + nxType + " failed");
       return;
@@ -543,10 +544,10 @@ var domUtils = require('../utils/dom');
 var drawingUtils = require('../utils/drawing');
 var timingUtils = require('../utils/timing');
 var transmit = require('../utils/transmit');
-var math = require('../utils/math');
+var nxmath = require('../utils/math');
 
 
-var widget = module.exports = function (target) {
+var widget = module.exports = function (targetIDOrCanvas, options) {
   EventEmitter.apply(this);
   this.preClick = this.preClick.bind(this);
   this.preMove = this.preMove.bind(this);
@@ -555,43 +556,55 @@ var widget = module.exports = function (target) {
   this.preTouchMove = this.preTouchMove.bind(this);
   this.preTouchRelease = this.preTouchRelease.bind(this);
 
+  options = options || {};
+
+  var canvas;
+  var canvasID;
+  if (typeof targetIDOrCanvas == 'string') {
+    canvasID= targetIDOrCanvas;
+    canvas = document.getElementById(targetIDOrCanvas);
+  } else {
+    canvas = targetIDOrCanvas;
+    canvasID = canvas ? canvas.id : null;
+  }
+
   /**
 
-   @class widget
+   @class Widget
    All NexusUI interface widgets inherit from the widget class. The properties and methods of the widget class are usable by any NexusUI interface.
 
    */
 
   /**  @property {string} canvasID ID attribute of the interface's HTML5 canvas */
-  this.canvasID = target;
+  this.canvasID = canvasID;
   /**  @property {string} oscPath OSC prefix for this interface. By default this is populated using the canvas ID (i.e. an ID of dial1 has OSC path /dial1) */
-  this.oscPath = "/" + target;
-  if (!document.getElementById(target)) {
-    var newcanv = document.createElement("canvas");
-    newcanv.id = target;
-    document.body.appendChild(newcanv)
+  this.oscPath = options['oscPath'] || ("/" + canvasID);
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.id = canvasID;
+    document.body.appendChild(canvas)
   }
   /**
    * @property {string} type The type of NexusUI widget (i.e. "dial", "toggle", "slider"). Set automatically at creation.
    */
   this.type = undefined;
-  /**  @property {DOM element} canvas The widget's HTML5 canvas */
-  this.canvas = document.getElementById(target);
-  /**  @property {HTML5 drawing context} context The canvas's drawing context */
+  /**  @property {Element} canvas The widget's HTML5 canvas */
+  this.canvas = canvas;
+  /**  @property {CanvasRenderingContext2D} context The canvas's drawing context */
   this.context = this.canvas.getContext("2d");
 
   this.checkPercentage();
   this.canvas.className = this.canvas.className ? this.canvas.className += " nx" : "nx";
 
-  this.canvas.height = window.getComputedStyle(document.getElementById(target), null).getPropertyValue("height").replace("px", "");
-  this.canvas.width = window.getComputedStyle(document.getElementById(target), null).getPropertyValue("width").replace("px", "");
+  this.canvas.height = window.getComputedStyle(canvas, null).getPropertyValue("height").replace("px", "");
+  this.canvas.width = window.getComputedStyle(canvas, null).getPropertyValue("width").replace("px", "");
   /**  @property {number} height The widget canvas's computed height in pixels */
-  this.height = parseInt(window.getComputedStyle(document.getElementById(target), null).getPropertyValue("height").replace("px", ""));
+  this.height = parseInt(window.getComputedStyle(canvas, null).getPropertyValue("height").replace("px", ""));
   /**  @property {number} width The widget canvas's computed width in pixels */
-  this.width = parseInt(window.getComputedStyle(document.getElementById(target), null).getPropertyValue("width").replace("px", ""));
+  this.width = parseInt(window.getComputedStyle(canvas, null).getPropertyValue("width").replace("px", ""));
   if (!this.defaultSize) {
     /**  @property {object} defaultSize The widget's default size if not defined with HTML/CSS style. (Has properties 'width' and 'height', both in pixels) */
-    this.defaultSize = {width: 100, height: 100};
+    this.defaultSize = options['defaultSize'] || {width: 100, height: 100};
   }
 
   /**  @property {boolean} label Whether or not to draw a text label this widget.   */
@@ -600,12 +613,15 @@ var widget = module.exports = function (target) {
   this.labelAlign = "center";
   this.labelFont = "'Open Sans'";
 
-  if (this.canvas.getAttribute("label") != null) {
-    this.label = this.canvas.getAttribute("label");
-    this.origDefaultHeight = this.defaultSize.height
+  if (options['label'] != null) {
+    this.label = options['label'];
+  } else {
+    this.label = this.canvas.getAttribute('label');
   }
+
   if (this.label) {
-    this.defaultSize.height += this.labelSize
+    this.origDefaultHeight = this.defaultSize.height;
+    this.defaultSize.height += this.labelSize;
   }
 
   if (this.width == 300 && this.height == 150) {
@@ -636,7 +652,7 @@ var widget = module.exports = function (target) {
     y: this.GUI.h / 2
   };
   //drawing
-  /**  @property {integer} lineWidth The default line width for drawing (default is 2 pixels). In many widgets, this is overwritten to suite the widget. However it does dictate the border width on most widgets. */
+  /**  @property {number} lineWidth The default line width for drawing (default is 2 pixels). In many widgets, this is overwritten to suite the widget. However it does dictate the border width on most widgets. */
   this.lineWidth = 2;
   this.context.lineWidth = this.lineWidth;
   /**  @property {object} colors A widget's individual color scheme. Inherited from nx.colors. (Has properties "accent", "fill", "border", "black", and "white") */
@@ -656,7 +672,7 @@ var widget = module.exports = function (target) {
   //interaction
   /**  @property {object} clickPos The most recent mouse/touch position when interating with a widget. (Has properties x and y) */
   this.clickPos = {x: 0, y: 0};
-  /**  @property {array} clickPos.touches If multitouch, an array of touch positions  */
+  /**  @property {Array} clickPos.touches If multitouch, an array of touch positions  */
   this.clickPos.touches = [];
   /**  @property {boolean} clicked Whether or not the widget is currently clicked  */
   this.clicked = false;
@@ -681,7 +697,7 @@ var widget = module.exports = function (target) {
   if (transmit) {
     /**  @method sendsTo
      Set the transmission protocol for this widget individually
-     @param {string or function} [destination] Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+     @param {string|function} [destination] Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
      ```js
      dial1.sendsTo("ajax")
 
@@ -727,7 +743,7 @@ widget.prototype.transmit = nx.transmit;
 
 /**  @method makeOSC
  Loops through an object (i.e. a widget's data), creates OSC path/value pairs, and executes a callback function with these two arguments.
- @param {function} [callback] A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
+ @param {function} [action] A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
  @param {object} [data] The data as an object, to be broken into individual OSC messages.
  */
 widget.prototype.makeOSC = function (action, data) {
@@ -1111,10 +1127,10 @@ widget.prototype.resize = function (w, h) {
 };
 
 widget.prototype.normalize = function (value) {
-  return math.scale(value, this.min, this.max, 0, 1)
+  return nxmath.scale(value, this.min, this.max, 0, 1)
 };
 widget.prototype.rangify = function (value) {
-  return math.scale(value, 0, 1, this.min, this.max)
+  return nxmath.scale(value, 0, 1, this.min, this.max)
 };
 
 
@@ -1398,7 +1414,7 @@ exports.scale = function (inNum, inMin, inMax, outMin, outMax) {
 
 /** @method invert
  Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
- @param {float} [inNum value]
+ @param {number} [inNum value]
  ```js
  nx.invert(0.25) // returns 0.75
  nx.invert(0) // returns 1
@@ -2045,7 +2061,7 @@ util.inherits(comment, widget);
 
 /** @method setSize
  Set the font size of the comment text
- @param {integer} [size] Text size in pixels
+ @param {number} [size] Text size in pixels
  */
 comment.prototype.setSize = function (size) {
   this.size = size;
@@ -2389,7 +2405,7 @@ var envelope = module.exports = function (target) {
   this.nodeSize = 1;
   /** @property {boolean} active Whether or not the envelope is currently animating. */
   this.active = false;
-  /** @property {integer} duration The envelope's duration in ms. */
+  /** @property {number} duration The envelope's duration in ms. */
   this.duration = 1000; // 1000 ms
   /** @property {boolean} looping Whether or not the envelope loops. */
   this.looping = false;
@@ -3920,7 +3936,6 @@ keyboard.prototype.release = function (e) {
 
 },{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],21:[function(require,module,exports){
 var math = require('../utils/math');
-var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -3939,7 +3954,7 @@ var matrix = module.exports = function (target) {
   widget.call(this, target);
 
 
-  /** @property {integer}  row   Number of rows in the matrix
+  /** @property {number}  row   Number of rows in the matrix
    ```js
    matrix1.row = 2;
    matrix1.init()
@@ -3947,7 +3962,7 @@ var matrix = module.exports = function (target) {
    */
   this.row = 4;
 
-  /** @property {integer}  col   Number of columns in the matrix
+  /** @property {number}  col   Number of columns in the matrix
    ```js
    matrix1.col = 10;
    matrix1.init()
@@ -3958,7 +3973,7 @@ var matrix = module.exports = function (target) {
   this.cellHgt;
   this.cellWid;
 
-  /** @property {array}  matrix   Nested array of matrix values. Cells can be manually altered using .matrix (see code), however this will *not* cause the new value to be transmit. See .setCell() to set/transmit cell values.
+  /** @property {Array}  matrix   Nested array of matrix values. Cells can be manually altered using .matrix (see code), however this will *not* cause the new value to be transmit. See .setCell() to set/transmit cell values.
    ```js
    //Turn on the cell at row 1 column 2
    matrix1.matrix[1][2] = 1
@@ -3994,7 +4009,7 @@ var matrix = module.exports = function (target) {
   /** @property {boolean}  erasing   Whether or not mouse clicks will erase cells. Set to true automatically if you click on an "on" cell. */
   this.erasing = false;
 
-  /** @property {integer}  place   When sequencing, the current column. */
+  /** @property {number}  place   When sequencing, the current column. */
   this.place = null;
 
   this.starttime;
@@ -4005,13 +4020,13 @@ var matrix = module.exports = function (target) {
 
   this.sequencing = false;
 
-  /** @property {integer}  cellBuffer  How much padding between matrix cells, in pixels */
+  /** @property {number}  cellBuffer  How much padding between matrix cells, in pixels */
   this.cellBuffer = 4;
 
   /** @property {string}  sequenceMode  Sequence pattern (currently accepts "linear" which is default, or "random") */
   this.sequenceMode = "linear"; // "linear" or "random". future options would be "wander" (drunk) or "markov"
 
-  /** @property {integer}  bpm   Beats per minute (if sequencing)
+  /** @property {number}  bpm   Beats per minute (if sequencing)
    ```js
    matrix1.bpm = 120;
    ```
@@ -4161,8 +4176,8 @@ matrix.prototype.move = function (e) {
 
 /** @method setCell
  Manually set an individual cell on/off and transmit the new value.
- @param {integer} [col] The column of the cell to be turned on/off
- @param {integer} [row] The row of the cell to be turned on/off
+ @param {number} [col] The column of the cell to be turned on/off
+ @param {number} [row] The row of the cell to be turned on/off
  @param {boolean} [on/off] Whether the cell should be turned on/off
 
  ```js
@@ -4362,7 +4377,7 @@ matrix.prototype.life = function () {
   return false;
 };
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],22:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":51}],22:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -5540,6 +5555,7 @@ multitouch.prototype.sendit = function () {
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
+var extend = require('extend');
 
 /**
  @class number
@@ -5550,8 +5566,17 @@ var widget = require('../core/widget');
  <canvas nx="number" style="margin-left:25px"></canvas>
  */
 
-var number = module.exports = function (target) {
-  this.defaultSize = {width: 50, height: 20};
+function NumberWidget(target, options) {
+  options = options || {};
+  options = extend(true, {
+    defaultSize: {width: 50, height: 20},
+    min: -20000,
+    max: 20000,
+    step: 1,
+    rate: .25,
+    decimalPlaces: 3
+  }, options || {});
+  this.defaultSize = options.defaultSize;
   widget.call(this, target);
 
   /** @property {object}  val
@@ -5577,7 +5602,7 @@ var number = module.exports = function (target) {
    number1.min = 0;
    ```
    */
-  this.min = -20000;
+  this.min = options.min;
 
   /** @property {float}  max   The maximum number allowed. Default is 20000.
 
@@ -5586,7 +5611,7 @@ var number = module.exports = function (target) {
    number1.max = 0;
    ```
    */
-  this.max = 20000;
+  this.max = options.max;
 
   /** @property {float}  step   The increment. Default is 1.
 
@@ -5595,7 +5620,7 @@ var number = module.exports = function (target) {
    number1.step = 10;
    ```
    */
-  this.step = 1;
+  this.step = options.step;
 
 
   /** @property {float}  rate   Sensitivity of dragging. Default is .25
@@ -5605,16 +5630,16 @@ var number = module.exports = function (target) {
    number1.rate = .001;
    ```
    */
-  this.rate = .25;
+  this.rate = options.rate;
 
-  /** @property {integer}  decimalPlaces   How many decimal places on the number. This applies to both the output and the interface text. Default is 2. To achieve an int (non-float), set decimalPlaces to 0.
+  /** @property {number}  decimalPlaces   How many decimal places on the number. This applies to both the output and the interface text. Default is 2. To achieve an int (non-float), set decimalPlaces to 0.
 
    ```js
    // For an int counter
    number1.decimalPlaces = 0;
    ```
    */
-  this.decimalPlaces = 3;
+  this.decimalPlaces = options.decimalPlaces;
   this.lostdata = 0;
   this.actual = 0;
 
@@ -5712,28 +5737,30 @@ var number = module.exports = function (target) {
 
 
   this.init();
-};
-util.inherits(number, widget);
+}
+util.inherits(NumberWidget, widget);
 
-number.prototype.init = function () {
+module.exports = NumberWidget;
+
+NumberWidget.prototype.init = function () {
 
 
   this.draw();
 };
 
-number.prototype.draw = function () {
+NumberWidget.prototype.draw = function () {
 
   this.canvas.value = this.val.value;
 
 };
 
 
-number.prototype.click = function (e) {
+NumberWidget.prototype.click = function (e) {
   this.canvas.readOnly = true;
   this.actual = this.val.value
 };
 
-number.prototype.move = function (e) {
+NumberWidget.prototype.move = function (e) {
   if (this.clicked) {
     this.canvas.style.border = "none";
 
@@ -5747,7 +5774,7 @@ number.prototype.move = function (e) {
 };
 
 
-number.prototype.release = function (e) {
+NumberWidget.prototype.release = function (e) {
   if (!this.hasMoved && this.canvas.readOnly) {
     this.canvas.readOnly = false;
     this.canvas.focus();
@@ -5757,7 +5784,7 @@ number.prototype.release = function (e) {
   }
 };
 
-},{"../core/widget":3,"../utils/math":6,"util":51}],31:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"extend":52,"util":51}],31:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
