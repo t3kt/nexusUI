@@ -56,12 +56,10 @@ window.onload = function() {
  */
 
 
-var timingUtils = require('../utils/timing');
 var drawingUtils = require('../utils/drawing');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var transmit = require('../utils/transmit');
-//var WAAClock = require('waaclock');
 
 
 var Manager = module.exports = function () {
@@ -86,7 +84,7 @@ var Manager = module.exports = function () {
   if (transmit) {
     /**
      @method sendsTo
-     @param {string or function} [destination] Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+     @param {string|function} [destination] Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
      ```js
      nx.sendsTo("ajax")
 
@@ -240,7 +238,8 @@ Manager.prototype.transform = function (canvas, type) {
 
   if (nxType) {
     try {
-      newObj = new (require('../widgets')[nxType])(canvas.id);
+      var widgetTypes = require('../widgets');
+      newObj = new (widgetTypes[nxType])(canvas.id);
     } catch (err) {
       console.log("creation of " + nxType + " failed");
       return;
@@ -291,29 +290,24 @@ Manager.prototype.colorize = function (aspect, color) {
 
   this.colors[aspect] = color;
 
-  this.colors.borderhl = drawingUtils.shadeBlendConvert(0.1, this.colors.border, this.colors.black); // colors.border + [20% Darker] => colors.darkborder
-  this.colors.accenthl = drawingUtils.shadeBlendConvert(0.3, this.colors.accent);
+  var borderhl = this.colors.borderhl = drawingUtils.shadeBlendConvert(0.1, this.colors.border, this.colors.black); // colors.border + [20% Darker] => colors.darkborder
+  var accenthl = this.colors.accenthl = drawingUtils.shadeBlendConvert(0.3, this.colors.accent);
 
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    this.widgets[key].colors[aspect] = color;
-    this.widgets[key].colors["borderhl"] = this.colors.borderhl;
-    this.widgets[key].colors["accenthl"] = this.colors.accenthl;
-
-    this.widgets[key].draw();
-  }
-
+  this.forEachWidget(function(widget) {
+    widget.colors[aspect] = color;
+    widget.colors['borderhl'] = borderhl;
+    widget.colors['accenthl'] = accenthl;
+    widget.draw();
+  });
 };
 
-// Manager.prototype.forEachWidget = function(callback) {
-//   for (var key in this.widgets) {
-//     if (this.widgets.hasOwnProperty(key)) {
-//       callback.call(this, this.widgets[key], key);
-//     }
-//   }
-// };
+Manager.prototype.forEachWidget = function(callback) {
+  for (var key in this.widgets) {
+    if (this.widgets.hasOwnProperty(key)) {
+      callback.call(this, this.widgets[key], key);
+    }
+  }
+};
 
 
 /** @method setThrottlePeriod
@@ -441,24 +435,18 @@ Manager.prototype.setViewport = function (scale) {
  */
 Manager.prototype.setLabels = function (onoff) {
   this.showLabels = onoff == "on";
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    this.widgets[key].draw()
-  }
+  this.forEachWidget(function(widget) {
+    widget.draw();
+  });
 };
 
 Manager.prototype.setProp = function (prop, val) {
   if (prop && val) {
     nx[prop] = val;
-    for (var key in this.widgets) {
-      if (!this.widgets.hasOwnProperty(key)) {
-        continue;
-      }
-      this.widgets[key][prop] = val;
-      this.widgets[key].draw()
-    }
+    this.forEachWidget(function(widget) {
+      widget[prop] = val;
+      widget.draw();
+    });
   }
 };
 
@@ -526,12 +514,7 @@ Manager.prototype.skin = function (name) {
 
 
 Manager.prototype.labelSize = function (size) {
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    var widget = this.widgets[key];
-
+  this.forEachWidget(function(widget) {
     if (widget.label) {
       var newheight = widget.GUI.h + size;
       widget.labelSize = size;
@@ -539,7 +522,7 @@ Manager.prototype.labelSize = function (size) {
         widget.resize(false, newheight)
       }
     }
-  }
+  });
   var textLabels = document.querySelectorAll(".nxlabel");
   console.log(textLabels);
 
@@ -553,7 +536,7 @@ Manager.prototype.labelSize = function (size) {
 
 
 
-},{"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"../widgets":18,"events":47,"util":51}],3:[function(require,module,exports){
+},{"../utils/drawing":5,"../utils/transmit":8,"../widgets":18,"events":47,"util":51}],3:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var domUtils = require('../utils/dom');
@@ -1330,8 +1313,8 @@ exports.shadeBlendConvert = function (p, from, to) {
 },{"./math":6}],6:[function(require,module,exports){
 /** @method toPolar
  Receives cartesian coordinates and returns polar coordinates as an object with 'radius' and 'angle' properties.
- @param {float} [x]
- @param {float} [y]
+ @param {number} [x]
+ @param {number} [y]
  ```js
  var ImOnACircle = nx.toPolar({ x: 20, y: 50 }})
  ```
@@ -1348,8 +1331,8 @@ exports.toPolar = function (x, y) {
 
 /** @method toCartesian
  Receives polar coordinates and returns cartesian coordinates as an object with 'x' and 'y' properties.
- @param {float} [radius]
- @param {float} [angle]
+ @param {number} [radius]
+ @param {number} [angle]
  */
 exports.toCartesian = function (radius, angle) {
   var cos = Math.cos(angle);
@@ -1360,9 +1343,9 @@ exports.toCartesian = function (radius, angle) {
 
 /** @method clip
  Limits a number to within low and high values.
- @param {float} [input value]
- @param {float} [low limit]
- @param {float} [high limit]
+ @param {number} [value]
+ @param {number} [low limit]
+ @param {number} [high limit]
  ```js
  nx.clip(5,0,10) // returns 5
  nx.clip(15,0,10) // returns 10
@@ -1375,8 +1358,8 @@ exports.clip = function (value, low, high) {
 
 /** @method prune
  Limits a float to within a certain number of decimal places
- @param {float} [input value]
- @param {integer} [max decimal places]
+ @param {number|Array} [data] value
+ @param {number} [scale]  max decimal places
  ```js
  nx.prine(1.2345, 3) // returns 1.234
  nx.prune(1.2345, 1) // returns 1.2
@@ -1399,11 +1382,11 @@ exports.prune = function (data, scale) {
 
 /** @method scale
  Scales an input number to a new range of numbers
- @param {float} [input value]
- @param {float} [low1]  input range (low)
- @param {float} [high1] input range (high)
- @param {float} [low2] output range (low)
- @param {float} [high2] output range (high)
+ @param {number} [inNum value]
+ @param {number} [inMin]  input range (low)
+ @param {number} [inMax] input range (high)
+ @param {number} [outMin] output range (low)
+ @param {number} [outMax] output range (high)
  ```js
  nx.scale(5,0,10,0,100) // returns 50
  nx.scale(5,0,10,1,2) // returns 1.5
@@ -1415,7 +1398,7 @@ exports.scale = function (inNum, inMin, inMax, outMin, outMax) {
 
 /** @method invert
  Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
- @param {float} [input value]
+ @param {float} [inNum value]
  ```js
  nx.invert(0.25) // returns 0.75
  nx.invert(0) // returns 1
@@ -1438,7 +1421,7 @@ exports.bounce = function (posIn, borderMin, borderMax, delta) {
 
 /** @method mtof
  MIDI to frequency conversion. Returns frequency in Hz.
- @param {float} [MIDI] MIDI value to convert
+ @param {number} [midi] MIDI value to convert
  ```js
  nx.mtof(69) // returns 440
  ```
@@ -1450,7 +1433,7 @@ exports.mtof = function (midi) {
 
 /** @method random
  Returns a random integer between 0 a given scale parameter.
- @param {float} [scale] Upper limit of random range.
+ @param {number} [scale] Upper limit of random range.
  ```js
  nx.random(10) // returns a random number from 0 to 9.
  ```
@@ -2178,7 +2161,7 @@ crossfade.prototype.move = function () {
   this.transmit(this.val);
 };
 },{"../core/widget":3,"../utils/math":6,"util":51}],14:[function(require,module,exports){
-var math = require('../utils/math');
+var nxmath = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -2304,7 +2287,7 @@ dial.prototype.draw = function () {
   //
   //
   //
-  this.val.value = math.prune(this.rangify(normalval), 3);
+  this.val.value = nxmath.prune(this.rangify(normalval), 3);
 
 
   //var valdigits = this.max ? Math.floor(this.max).toString().length : 1
@@ -2330,7 +2313,7 @@ dial.prototype.draw = function () {
 
 
 dial.prototype.click = function (e) {
-  this.val.value = math.prune(this.val.value, 4);
+  this.val.value = nxmath.prune(this.val.value, 4);
   this.transmit(this.val);
   this.draw();
   this.aniStart = this.val.value;
@@ -2339,8 +2322,8 @@ dial.prototype.click = function (e) {
 
 dial.prototype.move = function () {
   var normalval = this.normalize(this.val.value);
-  normalval = math.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
-  this.val.value = math.prune(this.rangify(normalval), 4);
+  normalval = nxmath.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
+  this.val.value = nxmath.prune(this.rangify(normalval), 4);
   this.transmit(this.val);
 
   this.draw();
@@ -2375,9 +2358,9 @@ dial.prototype.aniBounce = function () {
       this.aniStop = this.aniStart;
       this.aniStart = this.stopPlaceholder;
     }
-    this.aniMove = math.bounce(this.val.value, this.aniStart, this.aniStop, this.aniMove);
+    this.aniMove = nxmath.bounce(this.val.value, this.aniStart, this.aniStop, this.aniMove);
     this.draw();
-    this.val.value = math.prune(this.val.value, 4);
+    this.val.value = nxmath.prune(this.val.value, 4);
     this.transmit(this.val);
   }
 };

@@ -56,12 +56,10 @@ window.onload = function() {
  */
 
 
-var timingUtils = require('../utils/timing');
 var drawingUtils = require('../utils/drawing');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var transmit = require('../utils/transmit');
-//var WAAClock = require('waaclock');
 
 
 var Manager = module.exports = function () {
@@ -86,7 +84,7 @@ var Manager = module.exports = function () {
   if (transmit) {
     /**
      @method sendsTo
-     @param {string or function} [destination] Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+     @param {string|function} [destination] Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
      ```js
      nx.sendsTo("ajax")
 
@@ -240,7 +238,8 @@ Manager.prototype.transform = function (canvas, type) {
 
   if (nxType) {
     try {
-      newObj = new (require('../widgets')[nxType])(canvas.id);
+      var widgetTypes = require('../widgets');
+      newObj = new (widgetTypes[nxType])(canvas.id);
     } catch (err) {
       console.log("creation of " + nxType + " failed");
       return;
@@ -291,29 +290,24 @@ Manager.prototype.colorize = function (aspect, color) {
 
   this.colors[aspect] = color;
 
-  this.colors.borderhl = drawingUtils.shadeBlendConvert(0.1, this.colors.border, this.colors.black); // colors.border + [20% Darker] => colors.darkborder
-  this.colors.accenthl = drawingUtils.shadeBlendConvert(0.3, this.colors.accent);
+  var borderhl = this.colors.borderhl = drawingUtils.shadeBlendConvert(0.1, this.colors.border, this.colors.black); // colors.border + [20% Darker] => colors.darkborder
+  var accenthl = this.colors.accenthl = drawingUtils.shadeBlendConvert(0.3, this.colors.accent);
 
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    this.widgets[key].colors[aspect] = color;
-    this.widgets[key].colors["borderhl"] = this.colors.borderhl;
-    this.widgets[key].colors["accenthl"] = this.colors.accenthl;
-
-    this.widgets[key].draw();
-  }
-
+  this.forEachWidget(function(widget) {
+    widget.colors[aspect] = color;
+    widget.colors['borderhl'] = borderhl;
+    widget.colors['accenthl'] = accenthl;
+    widget.draw();
+  });
 };
 
-// Manager.prototype.forEachWidget = function(callback) {
-//   for (var key in this.widgets) {
-//     if (this.widgets.hasOwnProperty(key)) {
-//       callback.call(this, this.widgets[key], key);
-//     }
-//   }
-// };
+Manager.prototype.forEachWidget = function(callback) {
+  for (var key in this.widgets) {
+    if (this.widgets.hasOwnProperty(key)) {
+      callback.call(this, this.widgets[key], key);
+    }
+  }
+};
 
 
 /** @method setThrottlePeriod
@@ -441,24 +435,18 @@ Manager.prototype.setViewport = function (scale) {
  */
 Manager.prototype.setLabels = function (onoff) {
   this.showLabels = onoff == "on";
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    this.widgets[key].draw()
-  }
+  this.forEachWidget(function(widget) {
+    widget.draw();
+  });
 };
 
 Manager.prototype.setProp = function (prop, val) {
   if (prop && val) {
     nx[prop] = val;
-    for (var key in this.widgets) {
-      if (!this.widgets.hasOwnProperty(key)) {
-        continue;
-      }
-      this.widgets[key][prop] = val;
-      this.widgets[key].draw()
-    }
+    this.forEachWidget(function(widget) {
+      widget[prop] = val;
+      widget.draw();
+    });
   }
 };
 
@@ -526,12 +514,7 @@ Manager.prototype.skin = function (name) {
 
 
 Manager.prototype.labelSize = function (size) {
-  for (var key in this.widgets) {
-    if (!this.widgets.hasOwnProperty(key)) {
-      continue;
-    }
-    var widget = this.widgets[key];
-
+  this.forEachWidget(function(widget) {
     if (widget.label) {
       var newheight = widget.GUI.h + size;
       widget.labelSize = size;
@@ -539,7 +522,7 @@ Manager.prototype.labelSize = function (size) {
         widget.resize(false, newheight)
       }
     }
-  }
+  });
   var textLabels = document.querySelectorAll(".nxlabel");
   console.log(textLabels);
 
@@ -553,14 +536,14 @@ Manager.prototype.labelSize = function (size) {
 
 
 
-},{"../utils/drawing":5,"../utils/timing":7,"../utils/transmit":8,"../widgets":18,"events":47,"util":51}],3:[function(require,module,exports){
+},{"../utils/drawing":5,"../utils/transmit":8,"../widgets":18,"events":47,"util":51}],3:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var domUtils = require('../utils/dom');
 var drawingUtils = require('../utils/drawing');
 var timingUtils = require('../utils/timing');
 var transmit = require('../utils/transmit');
-var math = require('../utils/math');
+var nxmath = require('../utils/math');
 
 
 var widget = module.exports = function (target) {
@@ -592,9 +575,9 @@ var widget = module.exports = function (target) {
    * @property {string} type The type of NexusUI widget (i.e. "dial", "toggle", "slider"). Set automatically at creation.
    */
   this.type = undefined;
-  /**  @property {DOM element} canvas The widget's HTML5 canvas */
+  /**  @property {Element} canvas The widget's HTML5 canvas */
   this.canvas = document.getElementById(target);
-  /**  @property {HTML5 drawing context} context The canvas's drawing context */
+  /**  @property {CanvasRenderingContext2D} context The canvas's drawing context */
   this.context = this.canvas.getContext("2d");
 
   this.checkPercentage();
@@ -653,7 +636,7 @@ var widget = module.exports = function (target) {
     y: this.GUI.h / 2
   };
   //drawing
-  /**  @property {integer} lineWidth The default line width for drawing (default is 2 pixels). In many widgets, this is overwritten to suite the widget. However it does dictate the border width on most widgets. */
+  /**  @property {number} lineWidth The default line width for drawing (default is 2 pixels). In many widgets, this is overwritten to suite the widget. However it does dictate the border width on most widgets. */
   this.lineWidth = 2;
   this.context.lineWidth = this.lineWidth;
   /**  @property {object} colors A widget's individual color scheme. Inherited from nx.colors. (Has properties "accent", "fill", "border", "black", and "white") */
@@ -673,7 +656,7 @@ var widget = module.exports = function (target) {
   //interaction
   /**  @property {object} clickPos The most recent mouse/touch position when interating with a widget. (Has properties x and y) */
   this.clickPos = {x: 0, y: 0};
-  /**  @property {array} clickPos.touches If multitouch, an array of touch positions  */
+  /**  @property {Array} clickPos.touches If multitouch, an array of touch positions  */
   this.clickPos.touches = [];
   /**  @property {boolean} clicked Whether or not the widget is currently clicked  */
   this.clicked = false;
@@ -698,7 +681,7 @@ var widget = module.exports = function (target) {
   if (transmit) {
     /**  @method sendsTo
      Set the transmission protocol for this widget individually
-     @param {string or function} [destination] Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+     @param {string|function} [destination] Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
      ```js
      dial1.sendsTo("ajax")
 
@@ -744,7 +727,7 @@ widget.prototype.transmit = nx.transmit;
 
 /**  @method makeOSC
  Loops through an object (i.e. a widget's data), creates OSC path/value pairs, and executes a callback function with these two arguments.
- @param {function} [callback] A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
+ @param {function} [action] A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
  @param {object} [data] The data as an object, to be broken into individual OSC messages.
  */
 widget.prototype.makeOSC = function (action, data) {
@@ -1128,10 +1111,10 @@ widget.prototype.resize = function (w, h) {
 };
 
 widget.prototype.normalize = function (value) {
-  return math.scale(value, this.min, this.max, 0, 1)
+  return nxmath.scale(value, this.min, this.max, 0, 1)
 };
 widget.prototype.rangify = function (value) {
-  return math.scale(value, 0, 1, this.min, this.max)
+  return nxmath.scale(value, 0, 1, this.min, this.max)
 };
 
 
@@ -1330,8 +1313,8 @@ exports.shadeBlendConvert = function (p, from, to) {
 },{"./math":6}],6:[function(require,module,exports){
 /** @method toPolar
  Receives cartesian coordinates and returns polar coordinates as an object with 'radius' and 'angle' properties.
- @param {float} [x]
- @param {float} [y]
+ @param {number} [x]
+ @param {number} [y]
  ```js
  var ImOnACircle = nx.toPolar({ x: 20, y: 50 }})
  ```
@@ -1348,8 +1331,8 @@ exports.toPolar = function (x, y) {
 
 /** @method toCartesian
  Receives polar coordinates and returns cartesian coordinates as an object with 'x' and 'y' properties.
- @param {float} [radius]
- @param {float} [angle]
+ @param {number} [radius]
+ @param {number} [angle]
  */
 exports.toCartesian = function (radius, angle) {
   var cos = Math.cos(angle);
@@ -1360,9 +1343,9 @@ exports.toCartesian = function (radius, angle) {
 
 /** @method clip
  Limits a number to within low and high values.
- @param {float} [input value]
- @param {float} [low limit]
- @param {float} [high limit]
+ @param {number} [value]
+ @param {number} [low limit]
+ @param {number} [high limit]
  ```js
  nx.clip(5,0,10) // returns 5
  nx.clip(15,0,10) // returns 10
@@ -1375,8 +1358,8 @@ exports.clip = function (value, low, high) {
 
 /** @method prune
  Limits a float to within a certain number of decimal places
- @param {float} [input value]
- @param {integer} [max decimal places]
+ @param {number|Array} [data] value
+ @param {number} [scale]  max decimal places
  ```js
  nx.prine(1.2345, 3) // returns 1.234
  nx.prune(1.2345, 1) // returns 1.2
@@ -1399,11 +1382,11 @@ exports.prune = function (data, scale) {
 
 /** @method scale
  Scales an input number to a new range of numbers
- @param {float} [input value]
- @param {float} [low1]  input range (low)
- @param {float} [high1] input range (high)
- @param {float} [low2] output range (low)
- @param {float} [high2] output range (high)
+ @param {number} [inNum value]
+ @param {number} [inMin]  input range (low)
+ @param {number} [inMax] input range (high)
+ @param {number} [outMin] output range (low)
+ @param {number} [outMax] output range (high)
  ```js
  nx.scale(5,0,10,0,100) // returns 50
  nx.scale(5,0,10,1,2) // returns 1.5
@@ -1415,7 +1398,7 @@ exports.scale = function (inNum, inMin, inMax, outMin, outMax) {
 
 /** @method invert
  Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
- @param {float} [input value]
+ @param {number} [inNum value]
  ```js
  nx.invert(0.25) // returns 0.75
  nx.invert(0) // returns 1
@@ -1438,7 +1421,7 @@ exports.bounce = function (posIn, borderMin, borderMax, delta) {
 
 /** @method mtof
  MIDI to frequency conversion. Returns frequency in Hz.
- @param {float} [MIDI] MIDI value to convert
+ @param {number} [midi] MIDI value to convert
  ```js
  nx.mtof(69) // returns 440
  ```
@@ -1450,7 +1433,7 @@ exports.mtof = function (midi) {
 
 /** @method random
  Returns a random integer between 0 a given scale parameter.
- @param {float} [scale] Upper limit of random range.
+ @param {number} [scale] Upper limit of random range.
  ```js
  nx.random(10) // returns a random number from 0 to 9.
  ```
@@ -2062,7 +2045,7 @@ util.inherits(comment, widget);
 
 /** @method setSize
  Set the font size of the comment text
- @param {integer} [size] Text size in pixels
+ @param {number} [size] Text size in pixels
  */
 comment.prototype.setSize = function (size) {
   this.size = size;
@@ -2178,7 +2161,7 @@ crossfade.prototype.move = function () {
   this.transmit(this.val);
 };
 },{"../core/widget":3,"../utils/math":6,"util":51}],14:[function(require,module,exports){
-var math = require('../utils/math');
+var nxmath = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -2304,7 +2287,7 @@ dial.prototype.draw = function () {
   //
   //
   //
-  this.val.value = math.prune(this.rangify(normalval), 3);
+  this.val.value = nxmath.prune(this.rangify(normalval), 3);
 
 
   //var valdigits = this.max ? Math.floor(this.max).toString().length : 1
@@ -2330,7 +2313,7 @@ dial.prototype.draw = function () {
 
 
 dial.prototype.click = function (e) {
-  this.val.value = math.prune(this.val.value, 4);
+  this.val.value = nxmath.prune(this.val.value, 4);
   this.transmit(this.val);
   this.draw();
   this.aniStart = this.val.value;
@@ -2339,8 +2322,8 @@ dial.prototype.click = function (e) {
 
 dial.prototype.move = function () {
   var normalval = this.normalize(this.val.value);
-  normalval = math.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
-  this.val.value = math.prune(this.rangify(normalval), 4);
+  normalval = nxmath.clip((normalval - (this.deltaMove.y * this.responsivity)), 0, 1);
+  this.val.value = nxmath.prune(this.rangify(normalval), 4);
   this.transmit(this.val);
 
   this.draw();
@@ -2375,9 +2358,9 @@ dial.prototype.aniBounce = function () {
       this.aniStop = this.aniStart;
       this.aniStart = this.stopPlaceholder;
     }
-    this.aniMove = math.bounce(this.val.value, this.aniStart, this.aniStop, this.aniMove);
+    this.aniMove = nxmath.bounce(this.val.value, this.aniStart, this.aniStop, this.aniMove);
     this.draw();
-    this.val.value = math.prune(this.val.value, 4);
+    this.val.value = nxmath.prune(this.val.value, 4);
     this.transmit(this.val);
   }
 };
@@ -2406,7 +2389,7 @@ var envelope = module.exports = function (target) {
   this.nodeSize = 1;
   /** @property {boolean} active Whether or not the envelope is currently animating. */
   this.active = false;
-  /** @property {integer} duration The envelope's duration in ms. */
+  /** @property {number} duration The envelope's duration in ms. */
   this.duration = 1000; // 1000 ms
   /** @property {boolean} looping Whether or not the envelope loops. */
   this.looping = false;
@@ -3937,7 +3920,6 @@ keyboard.prototype.release = function (e) {
 
 },{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],21:[function(require,module,exports){
 var math = require('../utils/math');
-var drawing = require('../utils/drawing');
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -3956,7 +3938,7 @@ var matrix = module.exports = function (target) {
   widget.call(this, target);
 
 
-  /** @property {integer}  row   Number of rows in the matrix
+  /** @property {number}  row   Number of rows in the matrix
    ```js
    matrix1.row = 2;
    matrix1.init()
@@ -3964,7 +3946,7 @@ var matrix = module.exports = function (target) {
    */
   this.row = 4;
 
-  /** @property {integer}  col   Number of columns in the matrix
+  /** @property {number}  col   Number of columns in the matrix
    ```js
    matrix1.col = 10;
    matrix1.init()
@@ -3975,7 +3957,7 @@ var matrix = module.exports = function (target) {
   this.cellHgt;
   this.cellWid;
 
-  /** @property {array}  matrix   Nested array of matrix values. Cells can be manually altered using .matrix (see code), however this will *not* cause the new value to be transmit. See .setCell() to set/transmit cell values.
+  /** @property {Array}  matrix   Nested array of matrix values. Cells can be manually altered using .matrix (see code), however this will *not* cause the new value to be transmit. See .setCell() to set/transmit cell values.
    ```js
    //Turn on the cell at row 1 column 2
    matrix1.matrix[1][2] = 1
@@ -4011,7 +3993,7 @@ var matrix = module.exports = function (target) {
   /** @property {boolean}  erasing   Whether or not mouse clicks will erase cells. Set to true automatically if you click on an "on" cell. */
   this.erasing = false;
 
-  /** @property {integer}  place   When sequencing, the current column. */
+  /** @property {number}  place   When sequencing, the current column. */
   this.place = null;
 
   this.starttime;
@@ -4022,13 +4004,13 @@ var matrix = module.exports = function (target) {
 
   this.sequencing = false;
 
-  /** @property {integer}  cellBuffer  How much padding between matrix cells, in pixels */
+  /** @property {number}  cellBuffer  How much padding between matrix cells, in pixels */
   this.cellBuffer = 4;
 
   /** @property {string}  sequenceMode  Sequence pattern (currently accepts "linear" which is default, or "random") */
   this.sequenceMode = "linear"; // "linear" or "random". future options would be "wander" (drunk) or "markov"
 
-  /** @property {integer}  bpm   Beats per minute (if sequencing)
+  /** @property {number}  bpm   Beats per minute (if sequencing)
    ```js
    matrix1.bpm = 120;
    ```
@@ -4178,8 +4160,8 @@ matrix.prototype.move = function (e) {
 
 /** @method setCell
  Manually set an individual cell on/off and transmit the new value.
- @param {integer} [col] The column of the cell to be turned on/off
- @param {integer} [row] The row of the cell to be turned on/off
+ @param {number} [col] The column of the cell to be turned on/off
+ @param {number} [row] The row of the cell to be turned on/off
  @param {boolean} [on/off] Whether the cell should be turned on/off
 
  ```js
@@ -4379,7 +4361,7 @@ matrix.prototype.life = function () {
   return false;
 };
 
-},{"../core/widget":3,"../utils/drawing":5,"../utils/math":6,"util":51}],22:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"util":51}],22:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 

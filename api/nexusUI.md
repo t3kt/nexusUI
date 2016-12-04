@@ -25,7 +25,7 @@ nx.sendsTo(function(data) {
 
 **Parameters**
 
-**[destination]**:  *string or function*,  Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+**[destination]**:  *string|function*,  Protocol for transmitting data from interfaces (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
 
 nx.setAjaxPath(\[path\])
 ------------------------
@@ -133,7 +133,7 @@ dial1.sendsTo(function(data) {
 
 **Parameters**
 
-**[destination]**:  *string or function*,  Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
+**[destination]**:  *string|function*,  Protocol for transmitting data from this widget (i.e. "js", "ajax", "ios", "max", or "node"). Also accepts custom functions.
 
 widget.transmit(\[data\])
 -------------------------
@@ -144,14 +144,14 @@ The "output" instructions for sending the widget's data to another application o
 
 **[data]**:  *object*,  The data to be transmitted. Each property of the object will become its own OSC message if sending via "ajax" or "max7" protocols. (This works with objects nested to up to 2 levels).
 
-widget.makeOSC(\[callback\], \[data\])
---------------------------------------
+widget.makeOSC(\[action\], \[data\])
+------------------------------------
 Loops through an object (i.e. a widget's data), creates OSC path/value pairs, and executes a callback function with these two arguments.
 
 
 **Parameters**
 
-**[callback]**:  *function*,  A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
+**[action]**:  *function*,  A function defining the action to be taken with each OSC path/value pair. This function should have two parameters, path (string) and data (type depends on widget data type).
 
 **[data]**:  *object*,  The data as an object, to be broken into individual OSC messages.
 
@@ -284,10 +284,10 @@ var ImOnACircle = nx.toPolar({ x: 20, y: 50 }})
 
 **Parameters**
 
-**[x]**:  *float*,  
+**[x]**:  *number*,  
 
 
-**[y]**:  *float*,  
+**[y]**:  *number*,  
 
 
 utils.toCartesian(\[radius\], \[angle\])
@@ -297,14 +297,14 @@ Receives polar coordinates and returns cartesian coordinates as an object with '
 
 **Parameters**
 
-**[radius]**:  *float*,  
+**[radius]**:  *number*,  
 
 
-**[angle]**:  *float*,  
+**[angle]**:  *number*,  
 
 
-utils.clip(\[input, \[low, \[high)
-----------------------------------
+utils.clip(\[value\], \[low, \[high)
+------------------------------------
 Limits a number to within low and high values.
 ```js
 nx.clip(5,0,10) // returns 5
@@ -315,14 +315,15 @@ nx.clip(-1,0,10) // returns 0
 
 **Parameters**
 
-**[input**:  *float*,  value]
+**[value]**:  *number*,  
 
-**[low**:  *float*,  limit]
 
-**[high**:  *float*,  limit]
+**[low**:  *number*,  limit]
 
-utils.prune(\[input, \[max)
----------------------------
+**[high**:  *number*,  limit]
+
+utils.prune(\[data\], \[scale\])
+--------------------------------
 Limits a float to within a certain number of decimal places
 ```js
 nx.prine(1.2345, 3) // returns 1.234
@@ -332,12 +333,12 @@ nx.prune(1.2345, 1) // returns 1.2
 
 **Parameters**
 
-**[input**:  *float*,  value]
+**[data]**:  *number|Array*,  value
 
-**[max**:  *integer*,  decimal places]
+**[scale]**:  *number*,  max decimal places
 
-utils.scale(\[input, \[low1\], \[high1\], \[low2\], \[high2\])
---------------------------------------------------------------
+utils.scale(\[inNum, \[inMin\], \[inMax\], \[outMin\], \[outMax\])
+------------------------------------------------------------------
 Scales an input number to a new range of numbers
 ```js
 nx.scale(5,0,10,0,100) // returns 50
@@ -347,17 +348,17 @@ nx.scale(5,0,10,1,2) // returns 1.5
 
 **Parameters**
 
-**[input**:  *float*,  value]
+**[inNum**:  *number*,  value]
 
-**[low1]**:  *float*,  input range (low)
+**[inMin]**:  *number*,  input range (low)
 
-**[high1]**:  *float*,  input range (high)
+**[inMax]**:  *number*,  input range (high)
 
-**[low2]**:  *float*,  output range (low)
+**[outMin]**:  *number*,  output range (low)
 
-**[high2]**:  *float*,  output range (high)
+**[outMax]**:  *number*,  output range (high)
 
-utils.invert(\[input)
+utils.invert(\[inNum)
 ---------------------
 Equivalent to nx.scale(input,0,1,1,0). Inverts a normalized (0-1) number.
 ```js
@@ -368,9 +369,9 @@ nx.invert(0) // returns 1
 
 **Parameters**
 
-**[input**:  *float*,  value]
+**[inNum**:  *number*,  value]
 
-utils.mtof(\[MIDI\])
+utils.mtof(\[midi\])
 --------------------
 MIDI to frequency conversion. Returns frequency in Hz.
 ```js
@@ -380,7 +381,7 @@ nx.mtof(69) // returns 440
 
 **Parameters**
 
-**[MIDI]**:  *float*,  MIDI value to convert
+**[midi]**:  *number*,  MIDI value to convert
 
 utils.random(\[scale\])
 -----------------------
@@ -392,7 +393,7 @@ nx.random(10) // returns a random number from 0 to 9.
 
 **Parameters**
 
-**[scale]**:  *float*,  Upper limit of random range.
+**[scale]**:  *number*,  Upper limit of random range.
 
 class banner
 ------------
@@ -429,7 +430,7 @@ Set the font size of the comment text
 
 **Parameters**
 
-**[size]**:  *integer*,  Text size in pixels
+**[size]**:  *number*,  Text size in pixels
 
 class crossfade
 ---------------
@@ -509,9 +510,9 @@ matrix1.setCell(1,3,true);
 
 **Parameters**
 
-**[col]**:  *integer*,  The column of the cell to be turned on/off
+**[col]**:  *number*,  The column of the cell to be turned on/off
 
-**[row]**:  *integer*,  The row of the cell to be turned on/off
+**[row]**:  *number*,  The row of the cell to be turned on/off
 
 **[on/off]**:  *boolean*,  Whether the cell should be turned on/off
 
