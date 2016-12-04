@@ -23,7 +23,8 @@
     "url" : "http://github.com/lsu-emdm/nexusui/"
   },
   "dependencies": {
-    "extend": "2.0.x"
+    "extend": "2.0.x",
+    "webfontloader": "1.6.x"
   },
   "devDependencies": {
     "gulp": "3.8.x",
