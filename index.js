@@ -11,9 +11,9 @@ var WebFont = require('webfontloader');
 
 window.nx = new manager();
 window.nx.onload = function() {};
-window.nx = extend(window.nx,domUtils)
-window.nx = extend(window.nx,drawingUtils)
-window.nx = extend(window.nx,mathUtils)
+window.nx = extend(window.nx,domUtils);
+window.nx = extend(window.nx,drawingUtils);
+window.nx = extend(window.nx,mathUtils);
 
 /* this onload function turns canvases into nexus elements,
  * using the canvas's id as its var name */
