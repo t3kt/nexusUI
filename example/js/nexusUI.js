@@ -5202,6 +5202,7 @@ mouse.prototype.customDestroy = function () {
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
+var extend = require('extend');
 
 /**
  @class multislider
@@ -5211,15 +5212,18 @@ var widget = require('../core/widget');
  ```
  <canvas nx="multislider" style="margin-left:25px"></canvas>
  */
-var multislider = module.exports = function (target) {
+var multislider = module.exports = function (target, options) {
+  options = extend(true, {
+    defaultSize: {width: 100, height: 75},
+    sliders: 15
+  }, options);
+  this.defaultSize = options.defaultSize;
+  widget.call(this, target, options);
 
-  this.defaultSize = {width: 100, height: 75};
-  widget.call(this, target);
+  /** @property {number} sliders Number of sliders in the multislider. (Must call .init() after changing this setting, or set with .setNumberOfSliders) */
+  this.sliders = options.sliders;
 
-  /** @property {integer} sliders Number of sliders in the multislider. (Must call .init() after changing this setting, or set with .setNumberOfSliders) */
-  this.sliders = 15;
-
-  /** @property {array}  val   Array of slider values. <br> **Note:** This widget's output is not .val! Transmitted output is:
+  /** @property {Array}  val   Array of slider values. <br> **Note:** This widget's output is not .val! Transmitted output is:
 
    | &nbsp; | data
    | --- | ---
@@ -5352,7 +5356,7 @@ multislider.prototype.setSliderValue = function (slider, value) {
   this.transmit(msg);
 };
 
-},{"../core/widget":3,"../utils/math":6,"util":51}],29:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"extend":52,"util":51}],29:[function(require,module,exports){
 var math = require('../utils/math');
 var drawing = require('../utils/drawing');
 var util = require('util');
@@ -5577,7 +5581,7 @@ function NumberWidget(target, options) {
     decimalPlaces: 3
   }, options || {});
   this.defaultSize = options.defaultSize;
-  widget.call(this, target);
+  widget.call(this, target, options);
 
   /** @property {object}  val
    | &nbsp; | data
@@ -6321,6 +6325,7 @@ select.prototype.draw = function () {
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
+var extend = require('extend');
 
 /**
  @class slider
@@ -6331,24 +6336,33 @@ var widget = require('../core/widget');
  <canvas nx="slider" style="margin-left:25px"></canvas>
  */
 
-var slider = module.exports = function (target) {
-  this.defaultSize = {width: 35, height: 110};
-  widget.call(this, target);
+var slider = module.exports = function (target, options) {
+  options = extend(true, {
+    defaultSize: {width: 35, height: 100},
+    min: 0,
+    max: 1,
+    step: 0.001,
+    mode: 'absolute',
+    hslider: false,
+    maxdigits: 3
+  }, options);
+  // this.defaultSize = {width: 35, height: 110};
+  widget.call(this, target, options);
 
   if (this.canvas.getAttribute("min") != null) {
     this.min = parseFloat(this.canvas.getAttribute("min"));
   } else {
-    this.min = 0
+    this.min = options.min;
   }
   if (this.canvas.getAttribute("max") != null) {
     this.max = parseFloat(this.canvas.getAttribute("max"));
   } else {
-    this.max = 1
+    this.max = options.max;
   }
   if (this.canvas.getAttribute("step") != null) {
     this.step = parseFloat(this.canvas.getAttribute("step"));
   } else {
-    this.step = 0.001
+    this.step = options.step;
   }
 
   /** @property {object}  val
@@ -6367,7 +6381,7 @@ var slider = module.exports = function (target) {
 	}
    ```
    */
-  this.mode = "absolute";
+  this.mode = options.mode;
 
   /** @property {boolean}  hslider   Whether or not the slider should be horizontal. This is set to true automatically if the canvas is wider than it is tall. To override the default decision, set this property to true to create a horizontal slider, or false to create a vertical slider.
 
@@ -6382,12 +6396,12 @@ var slider = module.exports = function (target) {
 	}
    ```
    */
-  this.hslider = false;
+  this.hslider = options.hslider;
   this.handle;
   this.relhandle;
   this.cap;
 
-  this.maxdigits = 3;
+  this.maxdigits = options.maxdigits;
 
   this.calculateDigits = nx.calculateDigits;
 
@@ -6534,7 +6548,7 @@ slider.prototype.move = function () {
   this.val.value = math.prune(this.rangify(normalval), 3);
   this.transmit(this.val);
 };
-},{"../core/widget":3,"../utils/math":6,"util":51}],36:[function(require,module,exports){
+},{"../core/widget":3,"../utils/math":6,"extend":52,"util":51}],36:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
 
@@ -7061,9 +7075,9 @@ var widget = require('../core/widget');
  <canvas nx="toggle" style="margin-left:25px"></canvas>
  */
 
-var toggle = module.exports = function (target) {
+var toggle = module.exports = function (target, options) {
   this.defaultSize = {width: 50, height: 50};
-  widget.call(this, target);
+  widget.call(this, target, options);
 
   /** @property {object}  val  Object containing the core interactive aspects of the widget, which are also its data output. Has the following properties:
    | &nbsp; | data
