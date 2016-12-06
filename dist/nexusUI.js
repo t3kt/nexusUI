@@ -5212,7 +5212,7 @@ var extend = require('extend');
  ```
  <canvas nx="multislider" style="margin-left:25px"></canvas>
  */
-var multislider = module.exports = function (target, options) {
+function MultiSliderWidget(target, options) {
   options = extend(true, {
     defaultSize: {width: 100, height: 75},
     sliders: 15
@@ -5235,10 +5235,11 @@ var multislider = module.exports = function (target, options) {
   this.sliderClicked = 0;
   this.oldSliderToMove;
   this.init();
-};
-util.inherits(multislider, widget);
+}
+util.inherits(MultiSliderWidget, widget);
+module.exports = MultiSliderWidget;
 
-multislider.prototype.init = function () {
+MultiSliderWidget.prototype.init = function () {
   this.val = [];
   for (var i = 0; i < this.sliders; i++) {
     this.val[i] = 0.7;
@@ -5248,7 +5249,7 @@ multislider.prototype.init = function () {
   this.draw();
 };
 
-multislider.prototype.draw = function () {
+MultiSliderWidget.prototype.draw = function () {
   this.erase();
   var ctx = this.context;
   ctx.fillStyle = this.colors.fill;
@@ -5275,12 +5276,12 @@ multislider.prototype.draw = function () {
   this.drawLabel();
 };
 
-multislider.prototype.click = function () {
+MultiSliderWidget.prototype.click = function () {
   this.oldSliderToMove = false;
   this.move(true);
 };
 
-multislider.prototype.move = function (firstclick) {
+MultiSliderWidget.prototype.move = function (firstclick) {
   if (this.clicked) {
 
 
@@ -5328,7 +5329,7 @@ multislider.prototype.move = function (firstclick) {
 
 /** @method setNumberOfSliders
  @param {integer} [num] New number of sliders in the multislider */
-multislider.prototype.setNumberOfSliders = function (numOfSliders) {
+MultiSliderWidget.prototype.setNumberOfSliders = function (numOfSliders) {
   this.sliders = numOfSliders;
   this.val = [];
   for (var i = 0; i < this.sliders; i++) {
@@ -5342,7 +5343,7 @@ multislider.prototype.setNumberOfSliders = function (numOfSliders) {
  Sets a slider to new value and transmits.
  @param {integer} [slider] Slider to set (slider index starts at 0)
  @param {integer} [value] New slider value */
-multislider.prototype.setSliderValue = function (slider, value) {
+MultiSliderWidget.prototype.setSliderValue = function (slider, value) {
   this.val[slider] = value;
   this.draw();
   var msg = {};
@@ -6336,7 +6337,7 @@ var extend = require('extend');
  <canvas nx="slider" style="margin-left:25px"></canvas>
  */
 
-var slider = module.exports = function (target, options) {
+function SliderWidget(target, options) {
   options = extend(true, {
     defaultSize: {width: 35, height: 100},
     min: 0,
@@ -6406,10 +6407,11 @@ var slider = module.exports = function (target, options) {
   this.calculateDigits = nx.calculateDigits;
 
   this.init();
-};
-util.inherits(slider, widget);
+}
+util.inherits(SliderWidget, widget);
+module.exports = SliderWidget;
 
-slider.prototype.init = function () {
+SliderWidget.prototype.init = function () {
 
   //decide if hslider or vslider
   if (this.GUI.h >= this.GUI.w) {
@@ -6423,7 +6425,7 @@ slider.prototype.init = function () {
 };
 
 
-slider.prototype.draw = function () {
+SliderWidget.prototype.draw = function () {
 
   var normalval = this.normalize(this.val.value);
 
@@ -6507,11 +6509,11 @@ slider.prototype.draw = function () {
   }
 };
 
-slider.prototype.click = function () {
+SliderWidget.prototype.click = function () {
   this.move();
 };
 
-slider.prototype.move = function () {
+SliderWidget.prototype.move = function () {
 
   var normalval = this.normalize(this.val.value);
 
@@ -6841,6 +6843,7 @@ tabs.prototype.click = function () {
 },{"../core/widget":3,"../utils/math":6,"util":51}],38:[function(require,module,exports){
 var util = require('util');
 var widget = require('../core/widget');
+var extend = require('extend');
 
 /**
  @class text
@@ -6851,9 +6854,12 @@ var widget = require('../core/widget');
  <canvas nx="text"></canvas>
  */
 
-var text = module.exports = function (target) {
-  this.defaultSize = {width: 200, height: 100};
-  widget.call(this, target);
+var text = module.exports = function (target, options) {
+  options = extend(true, {
+    defaultSize: {width: 200, height: 100}
+  }, options);
+  this.defaultSize = options.defaultSize;
+  widget.call(this, target, options);
 
   /** @property {object}  val
    | &nbsp; | data
@@ -6925,7 +6931,7 @@ text.prototype.draw = function () {
   this.canvas.style.backgroundColor = this.colors.fill;
   this.canvas.style.color = this.colors.black;
 };
-},{"../core/widget":3,"util":51}],39:[function(require,module,exports){
+},{"../core/widget":3,"extend":52,"util":51}],39:[function(require,module,exports){
 var math = require('../utils/math');
 var util = require('util');
 var widget = require('../core/widget');
@@ -7075,7 +7081,7 @@ var widget = require('../core/widget');
  <canvas nx="toggle" style="margin-left:25px"></canvas>
  */
 
-var toggle = module.exports = function (target, options) {
+function ToggleWidget(target, options) {
   this.defaultSize = {width: 50, height: 50};
   widget.call(this, target, options);
 
@@ -7088,14 +7094,15 @@ var toggle = module.exports = function (target, options) {
     value: 0
   };
   this.init();
-};
-util.inherits(toggle, widget);
+}
+util.inherits(ToggleWidget, widget);
+module.exports = ToggleWidget;
 
-toggle.prototype.init = function () {
+ToggleWidget.prototype.init = function () {
   this.draw();
 };
 
-toggle.prototype.draw = function () {
+ToggleWidget.prototype.draw = function () {
 
   this.erase();
 
@@ -7123,7 +7130,7 @@ toggle.prototype.draw = function () {
 
 };
 
-toggle.prototype.click = function () {
+ToggleWidget.prototype.click = function () {
   if (!this.val.value) {
     this.val.value = 1;
   } else {
